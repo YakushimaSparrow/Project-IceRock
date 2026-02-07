@@ -1,5 +1,6 @@
 #include <iostream>
 
 int main(){
-    std::cout << 4;
+    int n;
+    std::cin >> n;
 }
