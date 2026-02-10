@@ -2,5 +2,5 @@
 
 int main(){
     int n;
-    std::cout << "sdelal vot tak igrok";
+    std::cout << "a tak ne sdelal";
 }
