@@ -2,5 +2,5 @@
 
 int main(){
     int n;
-    std::cin >> n;
+    std::cout << "sdelal vot tak igrok";
 }
