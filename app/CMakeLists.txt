@@ -1,17 +1,36 @@
-include_directories(..)
-include_directories(../include)
-include_directories(../src/ui)
+cmake_minimum_required(VERSION 3.23)
+project(RiskAlyzer VERSION 1.0 LANGUAGES CXX)
 
-add_executable(Icerock
-        main.cpp
-        ../src/ui/mainwindow.cpp
-        ../src/ui/mainwindow.h
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt")
+
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Charts)
+
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
+set(PROJECT_SOURCES
+        app/main.cpp
+        src/ui/mainwindow.cpp
+        src/ui/mainwindow.h
+)
+
+add_executable(Icerock ${PROJECT_SOURCES})
+
+target_include_directories(Icerock PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
 )
 
 target_link_libraries(Icerock PRIVATE
-        calculate
-        logger
         Qt6::Core
+        Qt6::Gui
         Qt6::Widgets
         Qt6::Charts
+)
+
+set_target_properties(Icerock PROPERTIES
+        MACOSX_BUNDLE TRUE
 )

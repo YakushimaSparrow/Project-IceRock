@@ -15,7 +15,6 @@ int main(int argc, char *argv[]){
     Logger::getInstance().log("Test2", LoggerLevel::INFO);
 
     MainWindow w;
-    w.show();
-
+    w.showMaximized();
     return app.exec();
 }
