@@ -114,6 +114,7 @@ static QColor sectorColor(const QString &s)
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
+    setWindowIcon(QIcon(":src/icons/avx1d-0ksyk.icns"));
     setWindowTitle("InvestPro");
     setMinimumSize(1280,800);
     resize(1500,920);

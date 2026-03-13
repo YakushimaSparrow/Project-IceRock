@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt")
-
+set(ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/icons/avx1d-0ksyk.icns")
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Charts)
 
 set(CMAKE_AUTOMOC ON)
@@ -22,6 +22,8 @@ add_executable(Icerock ${PROJECT_SOURCES})
 
 target_include_directories(Icerock PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
+
+        ${ICON_FILE}
 )
 
 target_link_libraries(Icerock PRIVATE
@@ -33,4 +35,8 @@ target_link_libraries(Icerock PRIVATE
 
 set_target_properties(Icerock PROPERTIES
         MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_ICON_FILE avx1d-0ksyk.icns
+)
+set_source_files_properties(${ICON_FILE} PROPERTIES
+        MACOSX_PACKAGE_LOCATION Resources
 )
