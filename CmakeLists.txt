@@ -16,7 +16,7 @@ set(CMAKE_AUTOUIC ON)
 set(PROJECT_SOURCES
         app/main.cpp
         src/ui/mainwindow.cpp
-        src/ui/mainwindow.h
+        include/ui/mainwindow.h
         src/calculate/R.cpp
         src/logger/logger.cpp
 )

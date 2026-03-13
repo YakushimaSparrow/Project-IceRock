@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "../../include/ui/mainwindow.h"
 #include <QApplication>
 #include <QScrollBar>
 

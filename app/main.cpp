@@ -2,7 +2,7 @@
 #include <vector>
 #include <cassert>
 #include <QApplication>
-#include "mainwindow.h"
+#include "../include/ui/mainwindow.h"
 #include "R.hpp"
 #include "logger.hpp"
 
