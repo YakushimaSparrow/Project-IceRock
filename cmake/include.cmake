@@ -13,23 +13,17 @@ if(NOT DEFINED ROOT)
     get_filename_component(ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 endif()
 
-# ------------------------------------------------------------------
 # Qt6
-# ------------------------------------------------------------------
 set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt")
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Charts OpenGLWidgets)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# ------------------------------------------------------------------
 # Threads
-# ------------------------------------------------------------------
 find_package(Threads REQUIRED)
 
-# ------------------------------------------------------------------
 # gRPC + Protobuf
-# ------------------------------------------------------------------
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC    CONFIG REQUIRED)
 
@@ -39,9 +33,7 @@ set(_GRPC_LIB    gRPC::grpc++)
 set(_PROTOC      $<TARGET_FILE:protobuf::protoc>)
 set(_GRPC_PLUGIN $<TARGET_FILE:gRPC::grpc_cpp_plugin>)
 
-# ------------------------------------------------------------------
 # Tinkoff investAPI proto
-# ------------------------------------------------------------------
 include(FetchContent)
 FetchContent_Declare(
         tinkoff_investapi
@@ -61,10 +53,8 @@ if(NOT _protos)
     message(FATAL_ERROR "No .proto files found in: ${_PROTO_DIR}")
 endif()
 
-# ------------------------------------------------------------------
 # Вспомогательный Python-скрипт для замены 'public' → 'public_'
-# Используем Python вместо sed — он одинаково работает на всех платформах
-# ------------------------------------------------------------------
+# Используем Python вместо sed
 set(PROTO_OUT "${CMAKE_BINARY_DIR}/proto_gen")
 file(MAKE_DIRECTORY "${PROTO_OUT}")
 
@@ -110,9 +100,7 @@ foreach(_proto ${_protos})
     list(APPEND PROTO_SOURCES ${_pc} ${_gc})
 endforeach()
 
-# ------------------------------------------------------------------
 # calculate
-# ------------------------------------------------------------------
 add_library(calculate STATIC
         "${ROOT}/src/calculate/R.cpp"
 )
@@ -120,9 +108,8 @@ target_include_directories(calculate PUBLIC
         "${ROOT}/include/calculate"
 )
 
-# ------------------------------------------------------------------
 # logger
-# ------------------------------------------------------------------
+
 find_package(spdlog REQUIRED)
 add_library(logger STATIC
         "${ROOT}/src/logger/logger.cpp"
@@ -132,9 +119,7 @@ target_include_directories(logger PUBLIC
 )
 target_link_libraries(logger PUBLIC spdlog::spdlog)
 
-# ------------------------------------------------------------------
 # parse
-# ------------------------------------------------------------------
 add_library(parse STATIC
         "${ROOT}/src/parse/Services.cpp"
         ${PROTO_SOURCES}
@@ -156,10 +141,8 @@ target_link_libraries(parse PUBLIC
         logger
 )
 
-# ------------------------------------------------------------------
 # ui_library
-# mainwindow.hpp лежит в src/ui/ — добавляем ОБА пути
-# ------------------------------------------------------------------
+# mainwindow.hpp лежит в src/ui/
 add_library(ui_library STATIC
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/ui/TinkoffBridge.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../src/ui/mainwindow.cpp

@@ -5,10 +5,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-# ------------------------------------------------------------------
-# КОРЕНЬ ПРОЕКТА — папка рядом с app/
-# Там лежат: src/, include/, cmake/, tests/
-# ------------------------------------------------------------------
+# КОРЕНЬ ПРОЕКТА
 get_filename_component(ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 
 # Подключаем cmake/include.cmake
@@ -19,9 +16,7 @@ include(include)
 enable_testing()
 add_subdirectory("${ROOT}/tests" "${CMAKE_CURRENT_BINARY_DIR}/tests")
 
-# ------------------------------------------------------------------
 # Исполняемый файл IceRock
-# ------------------------------------------------------------------
 qt_add_executable(IceRock
         "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
 )

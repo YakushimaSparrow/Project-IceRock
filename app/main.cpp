@@ -8,14 +8,7 @@ int main(int argc, char* argv[])
     QApplication app(argc, argv);
     app.setFont(QFont("Arial", 10));
 
-    // -------------------------------------------------------
-    // Токен Tinkoff Sandbox передаётся через аргумент в CLion:
-    //   Run → Edit Configurations → Program arguments:
-    //   t.ВашТокен
-    //
-    // Или через переменную окружения TINKOFF_SANDBOX_TOKEN.
-    // Без токена — режим симуляции (без сети).
-    // -------------------------------------------------------
+    // Токен Tinkoff Sandbox передаётся через аргумент си лайон:
     QString token;
     if (argc > 1)
         token = QString::fromUtf8(argv[1]);

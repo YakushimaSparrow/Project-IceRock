@@ -2,9 +2,7 @@
 #include <QApplication>
 #include <QScrollBar>
 
-// ================================================================
-// Хелперы генерации данных
-// ================================================================
+// Рисуем фейковые свечки
 static QVector<CandleData> makeCandles(double start,int n,double vol,quint32 seed)
 {
     QVector<CandleData> out; double price=start;
@@ -19,14 +17,17 @@ static QVector<CandleData> makeCandles(double start,int n,double vol,quint32 see
         long long v=(long long)(rng.bounded(5000000)+100000);
         out.append({d,open,hi,lo,close,v});
         price=close; d=d.addDays(1);
+        // Пропускаем выходные
         while(d.dayOfWeek()>5) d=d.addDays(1);
     }
     return out;
 }
 
+// Придумываем все акции
 static QVector<Asset> generateAssets()
 {
     QVector<Asset> list;
+    // Лямбда чтобы не повторять код десять раз
     auto add=[&](const QString&tk,const QString&nm,const QString&sec,
                  int tc,double avg,double vol,double pri,double sp,quint32 seed){
         Asset a; a.ticker=tk; a.name=nm; a.sector=sec;
@@ -37,6 +38,7 @@ static QVector<Asset> generateAssets()
         a.profit=(a.currentPrice-avg)*tc; a.liveData=false;
         return a;
     };
+    // Добавляем десять инструментов
     list<<add("SBER","Сбербанк",   "Финансы",   1200, 268.5,0.022,1.8, 240.0, 42);
     list<<add("GAZP","Газпром",    "Энергетика", 800, 154.2,0.025,2.4, 148.0, 77);
     list<<add("LKOH","Лукойл",     "Нефть/газ",  300,6820.0,0.018,2.1,6500.0, 99);
@@ -50,6 +52,7 @@ static QVector<Asset> generateAssets()
     return list;
 }
 
+// Генерируем новости
 static QVector<NewsItem> generateNews()
 {
     QDate t=QDate::currentDate();
@@ -67,6 +70,7 @@ static QVector<NewsItem> generateNews()
     };
 }
 
+// Цвет для каждого сектора
 static QColor sectorColor(const QString& s)
 {
     static const QMap<QString,QColor> m={
@@ -78,6 +82,7 @@ static QColor sectorColor(const QString& s)
     return m.value(s,{75,85,99});
 }
 
+// Укорачиваем большие числа
 static QString fmtS(double v)
 {
     bool neg=v<0; v=qAbs(v); QString s;
@@ -87,11 +92,10 @@ static QString fmtS(double v)
     else s=QString::number(v,'f',2);
     return (neg?"−":"+")+s;
 }
+// Добавляем рубль
 static QString fmtRub(double v){return fmtS(v)+" ₽";}
 
-// ================================================================
-// MainWindow
-// ================================================================
+// Запускаем главное окно
 MainWindow::MainWindow(const QString& token, QWidget* parent)
     : QMainWindow(parent)
 {
@@ -105,6 +109,7 @@ MainWindow::MainWindow(const QString& token, QWidget* parent)
     setupUI();
     applyTheme();
 
+    // Есть токен — идём в апи
     if(!token.isEmpty()){
         m_bridge=new TinkoffBridge(token,this);
         connect(m_bridge,&TinkoffBridge::allPricesUpdated,this,&MainWindow::onAllPricesUpdated);
@@ -113,6 +118,7 @@ MainWindow::MainWindow(const QString& token, QWidget* parent)
         m_bridge->start();
         if(m_liveStatusLabel) m_liveStatusLabel->setText("⏳ Sandbox...");
     } else {
+        // Нет токена — симулируем
         if(m_liveStatusLabel) m_liveStatusLabel->setText("🟡 Симуляция");
         m_simTimer=new QTimer(this);
         connect(m_simTimer,&QTimer::timeout,this,&MainWindow::onSimTick);
@@ -121,18 +127,20 @@ MainWindow::MainWindow(const QString& token, QWidget* parent)
 }
 MainWindow::~MainWindow()=default;
 
-// ================================================================
-// API слоты — ВАЖНО: цвета и стили не меняются при обновлении данных
-// ================================================================
+// Апи ответила успешно
 void MainWindow::onBridgeConnected()
 {
     if(m_liveStatusLabel) m_liveStatusLabel->setText("🟢 Sandbox LIVE");
 }
+
+// Апи сломалась
 void MainWindow::onConnectionError(const QString& msg)
 {
     Q_UNUSED(msg)
     if(m_liveStatusLabel) m_liveStatusLabel->setText("🔴 Нет связи");
 }
+
+// Пришли новые цены
 void MainWindow::onAllPricesUpdated(const QVector<LivePrice>& prices)
 {
     for(const auto& lp:prices){
@@ -142,6 +150,7 @@ void MainWindow::onAllPricesUpdated(const QVector<LivePrice>& prices)
             a.currentPrice=lp.price;
             a.profit=(a.currentPrice-a.avgPrice)*a.tickCount;
             a.liveData=true;
+            // Обновляем последнюю свечку
             if(!a.candles.isEmpty()){
                 CandleData& last=a.candles.last();
                 last.close=lp.price;
@@ -151,12 +160,14 @@ void MainWindow::onAllPricesUpdated(const QVector<LivePrice>& prices)
             break;
         }
     }
-    // Обновляем ТОЛЬКО данные виджетов, НЕ пересоздавая их — стили сохраняются
+    // Перерисовываем без сброса стилей
     populateAssetList();
     if(m_pieChart) m_pieChart->setAssets(m_assets);
     if(m_tickerBar) m_tickerBar->setAssets(m_assets);
     if(m_allocBar){m_allocBar->setAssets(m_assets); m_allocBar->update();}
 }
+
+// Дёргаем цены случайно раз в секунду
 void MainWindow::onSimTick()
 {
     auto* rng=QRandomGenerator::global();
@@ -176,9 +187,7 @@ void MainWindow::onSimTick()
     if(m_tickerBar) m_tickerBar->setAssets(m_assets);
 }
 
-// ================================================================
-// setupUI
-// ================================================================
+// Собираем всё окно
 void MainWindow::setupUI()
 {
     m_central=new QWidget(this); m_central->setObjectName("centralWidget");
@@ -191,6 +200,7 @@ void MainWindow::setupUI()
 
     buildHeader(); root->addWidget(m_headerWidget);
 
+    // Сплиттер делит экран на две части
     auto* split=new QSplitter(Qt::Horizontal);
     split->setObjectName("mainSplitter"); split->setHandleWidth(4);
     buildLeftPanel(); buildRightPanel();
@@ -200,6 +210,7 @@ void MainWindow::setupUI()
     root->addWidget(split,1);
 }
 
+// Строим шапку сверху
 void MainWindow::buildHeader()
 {
     m_headerWidget=new QWidget; m_headerWidget->setObjectName("headerWidget");
@@ -223,6 +234,7 @@ void MainWindow::buildHeader()
     m_liveStatusLabel->setObjectName("liveStatus");
     hl->addWidget(m_liveStatusLabel); hl->addSpacing(14);
 
+    // Вертикальные разделители между статами
     auto sep=[&](){auto* s=new QFrame;s->setFrameShape(QFrame::VLine);s->setObjectName("hdrSep");hl->addWidget(s);hl->addSpacing(18);};
     auto stat=[&](const QString&ic,const QString&ti,const QString&va,const QString&ob){
         auto* bx=new QVBoxLayout; bx->setSpacing(1);
@@ -238,11 +250,13 @@ void MainWindow::buildHeader()
     hl->addStretch();
 
     auto* nb=new QPushButton("🔔"); nb->setObjectName("iconBtn"); nb->setFixedSize(36,36); hl->addWidget(nb); hl->addSpacing(6);
+    // Кнопка закрыть окно
     auto* cb=new QPushButton("✕"); cb->setObjectName("closeBtn"); cb->setFixedSize(36,36);
     connect(cb,&QPushButton::clicked,this,&QWidget::close);
     hl->addWidget(cb);
 }
 
+// Строим левую панель со списком
 void MainWindow::buildLeftPanel()
 {
     m_leftPanel=new QWidget; m_leftPanel->setObjectName("leftPanel");
@@ -250,6 +264,7 @@ void MainWindow::buildLeftPanel()
     auto* ll=new QVBoxLayout(m_leftPanel);
     ll->setContentsMargins(8,10,6,8); ll->setSpacing(6);
 
+    // Поиск по акциям
     auto* sb=new QWidget; sb->setObjectName("searchBar"); sb->setFixedHeight(34);
     auto* sbl=new QHBoxLayout(sb); sbl->setContentsMargins(10,0,10,0);
     auto* si=new QLabel("🔍"); si->setFixedWidth(18);
@@ -257,6 +272,7 @@ void MainWindow::buildLeftPanel()
     se->setPlaceholderText("Поиск актива..."); se->setFrame(false);
     sbl->addWidget(si); sbl->addWidget(se); ll->addWidget(sb);
 
+    // Чипы фильтрации
     auto* cr=new QHBoxLayout; cr->setSpacing(4);
     for(const QString&lb:{"Все","Акции","Сырьё","Валюта"}){
         auto* chip=new QPushButton(lb); chip->setObjectName("chipBtn"); chip->setFixedHeight(24); cr->addWidget(chip);
@@ -270,9 +286,11 @@ void MainWindow::buildLeftPanel()
     m_assetList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_assetList->setSpacing(3);
     populateAssetList();
+    // Двойной клик открывает детали
     connect(m_assetList,&QListWidget::itemDoubleClicked,this,&MainWindow::onAssetDoubleClicked);
     ll->addWidget(m_assetList,1);
 
+    // Итоговый плюс/минус внизу
     double tp=0; for(const auto&a:m_assets) tp+=a.profit;
     auto* mn=new QWidget; mn->setObjectName("miniSummary"); mn->setFixedHeight(50);
     auto* ml=new QHBoxLayout(mn); ml->setContentsMargins(12,6,12,6);
@@ -282,6 +300,7 @@ void MainWindow::buildLeftPanel()
     ll->addWidget(mn);
 }
 
+// Строим правую часть
 void MainWindow::buildRightPanel()
 {
     m_rightPanel=new QWidget; m_rightPanel->setObjectName("rightPanel");
@@ -289,11 +308,13 @@ void MainWindow::buildRightPanel()
     rl->setContentsMargins(4,0,0,0); rl->setSpacing(6);
     buildMenuBar(); rl->addWidget(m_menuBarWidget);
     m_pageStack=new QStackedWidget; m_pageStack->setObjectName("pageStack");
+    // Строим все страницы подряд
     buildHomePage(); buildNewsPage(); buildAnalyticsPage();
     buildCalendarPage(); buildScreenerPage(); buildSettingsPage();
     rl->addWidget(m_pageStack,1);
 }
 
+// Верхнее меню с кнопками страниц
 void MainWindow::buildMenuBar()
 {
     m_menuBarWidget=new QWidget; m_menuBarWidget->setObjectName("menuBarWidget");
@@ -312,12 +333,14 @@ void MainWindow::buildMenuBar()
     auto* sep=new QFrame; sep->setFrameShape(QFrame::VLine); sep->setObjectName("menuSep"); ml->addWidget(sep);
     auto* sb=new QPushButton("⚙  Настройки"); sb->setProperty("menuBtn",true); sb->setObjectName("menuBtn");
     connect(sb,&QPushButton::clicked,[this]{switchPage(5);}); ml->addWidget(sb);
+    // Кнопка смены темы
     m_themeBtn=new QPushButton("☀  Тема"); m_themeBtn->setProperty("menuBtn",true);
     m_themeBtn->setObjectName("menuBtnTheme"); m_themeBtn->setCursor(Qt::PointingHandCursor);
     connect(m_themeBtn,&QPushButton::clicked,this,&MainWindow::toggleTheme);
     ml->addWidget(m_themeBtn);
 }
 
+// Главная страница с пирогом
 void MainWindow::buildHomePage()
 {
     auto* page=new QWidget;
@@ -334,6 +357,7 @@ void MainWindow::buildHomePage()
     lcl->addWidget(pc); lcl->addStretch();
 
     auto* rc=new QWidget; auto* rcl=new QVBoxLayout(rc); rcl->setContentsMargins(0,0,0,0); rcl->setSpacing(8);
+    // Четыре карточки со статами
     auto* kr=new QHBoxLayout; kr->setSpacing(8);
     struct KP{QString ic,ti,va,cl;};
     const QVector<KP> kps={{"💹","Прибыль сегодня","+287 430 ₽","#34d399"},{"📉","Макс. просадка","−3.8%","#f87171"},{"🔄","Оборот (30 дн.)","18.4 млрд ₽","#93c5fd"},{"⭐","Шарп / Сортино","1.42 / 1.87","#fbbf24"}};
@@ -346,6 +370,7 @@ void MainWindow::buildHomePage()
     }
     rcl->addLayout(kr);
     auto* sl=new QLabel("📋  Сводка портфеля"); sl->setObjectName("sectionTitle"); rcl->addWidget(sl);
+    // Скролл со строчками активов
     auto* sc=new QScrollArea; sc->setWidgetResizable(true); sc->setObjectName("summaryScroll");
     sc->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     auto* scw=new QWidget; auto* scl=new QVBoxLayout(scw);
@@ -356,6 +381,7 @@ void MainWindow::buildHomePage()
     m_pageStack->addWidget(page);
 }
 
+// Страница новостей
 void MainWindow::buildNewsPage()
 {
     auto* page=new QWidget; auto* pl=new QVBoxLayout(page);
@@ -370,11 +396,13 @@ void MainWindow::buildNewsPage()
     m_pageStack->addWidget(page);
 }
 
+// Страница аналитики
 void MainWindow::buildAnalyticsPage()
 {
     auto* page=new QWidget; auto* pl=new QVBoxLayout(page);
     pl->setContentsMargins(10,10,10,10); pl->setSpacing(8);
     auto* ti=new QLabel("📊  Аналитика"); ti->setObjectName("pageTitle"); pl->addWidget(ti);
+    // Шесть метрик в ряд
     auto* row=new QHBoxLayout; row->setSpacing(8);
     struct M{QString nm,va,sb,cl,ic;};
     const QVector<M> ms={{"Beta","0.87","vs MOEX","#93c5fd","β"},{"Alpha","+2.4%","годовых","#34d399","α"},{"VaR 95%","−4.2%","дневной","#f87171","⚡"},{"Корреляция","0.61","между акт.","#fbbf24","∞"},{"Просадка","−8.3%","12 мес.","#f87171","↓"},{"Волатильность","12.4%","год.","#fbbf24","~"}};
@@ -389,11 +417,13 @@ void MainWindow::buildAnalyticsPage()
     }
     pl->addLayout(row);
     auto* al=new QLabel("  Аллокация по секторам"); al->setObjectName("sectionTitle"); pl->addWidget(al);
+    // Горизонтальные бары по секторам
     m_allocBar=new AllocationBarWidget(m_assets,m_darkTheme); m_allocBar->setMinimumHeight(220);
     pl->addWidget(m_allocBar,1);
     m_pageStack->addWidget(page);
 }
 
+// Страница дивидендов
 void MainWindow::buildCalendarPage()
 {
     auto* page=new QWidget; auto* pl=new QVBoxLayout(page);
@@ -406,6 +436,7 @@ void MainWindow::buildCalendarPage()
     for(const auto&e:evs){
         auto* row=new QWidget; row->setObjectName("calRow"); row->setFixedHeight(56);
         auto* rl=new QHBoxLayout(row); rl->setContentsMargins(14,6,14,6);
+        // Цветной бейджик с тикером
         auto* bg=new QLabel(e.tk); bg->setAlignment(Qt::AlignCenter); bg->setFixedSize(70,32);
         bg->setStyleSheet("background:#4f6ef7;border-radius:8px;color:white;font-weight:800;font-size:11px;");
         auto* co=new QLabel(e.co); co->setObjectName("calCompany");
@@ -419,11 +450,13 @@ void MainWindow::buildCalendarPage()
     m_pageStack->addWidget(page);
 }
 
+// Страница скринера
 void MainWindow::buildScreenerPage()
 {
     auto* page=new QWidget; auto* pl=new QVBoxLayout(page);
     pl->setContentsMargins(10,10,10,10); pl->setSpacing(8);
     auto* ti=new QLabel("🔭  Скринер"); ti->setObjectName("pageTitle"); pl->addWidget(ti);
+    // Фильтры чипами
     auto* fr=new QHBoxLayout; fr->setSpacing(8);
     for(const QString&f:{"P/E < 15","Div > 5%","Кап > 500 млрд","ROE > 20%","Beta < 1"}){
         auto* chip=new QPushButton(f); chip->setObjectName("screenChip"); chip->setCheckable(true); fr->addWidget(chip);
@@ -433,6 +466,7 @@ void MainWindow::buildScreenerPage()
     const QVector<SR> rows={{"SBER","Сбербанк",5.1,6.1,23.4,0.85,6420},{"GAZP","Газпром",3.2,4.8,11.2,0.72,3150},{"LKOH","Лукойл",6.4,8.4,19.6,0.91,5200},{"YNDX","Яндекс",28.7,0.0,12.1,1.41,1820},{"GMKN","НорНикель",8.9,3.9,31.2,0.78,2780},{"ROSN","Роснефть",4.6,4.1,14.3,0.88,4100},{"MGNT","Магнит",11.2,5.2,22.8,0.95,1640}};
     auto* sc=new QScrollArea; sc->setWidgetResizable(true); sc->setObjectName("summaryScroll");
     auto* cw=new QWidget; auto* cl=new QVBoxLayout(cw); cl->setContentsMargins(4,4,4,4); cl->setSpacing(4);
+    // Заголовок таблицы
     auto* hdr=new QWidget; hdr->setObjectName("tableHdrRow"); hdr->setFixedHeight(32);
     auto* hrl=new QHBoxLayout(hdr); hrl->setContentsMargins(14,0,14,0);
     for(const QString&h:{"Тикер","Название","P/E","Дивид.","ROE","Beta","Кап."}){
@@ -442,6 +476,7 @@ void MainWindow::buildScreenerPage()
     for(const auto&r:rows){
         auto* row=new QWidget; row->setObjectName("calRow"); row->setFixedHeight(44);
         auto* rl=new QHBoxLayout(row); rl->setContentsMargins(14,6,14,6);
+        // Зелёный если хорошо, белый если нет
         auto col=[&](const QString&t,int s,const QString&st){auto* l=new QLabel(t);l->setStyleSheet(st);rl->addWidget(l,s);};
         col(r.tk,1,"color:#93c5fd;font-size:12px;font-weight:800;");
         col(r.nm,2,"color:#e8eaf6;font-size:12px;");
@@ -456,6 +491,7 @@ void MainWindow::buildScreenerPage()
     m_pageStack->addWidget(page);
 }
 
+// Настройки пока пустые
 void MainWindow::buildSettingsPage()
 {
     auto* page=new QWidget; auto* l=new QVBoxLayout(page);
@@ -464,6 +500,7 @@ void MainWindow::buildSettingsPage()
     m_pageStack->addWidget(page);
 }
 
+// Перерисовываем список активов
 void MainWindow::populateAssetList()
 {
     m_assetList->clear();
@@ -479,9 +516,11 @@ void MainWindow::populateAssetList()
     }
 }
 
+// Открываем детальную страницу актива
 void MainWindow::showAssetDetail(int index)
 {
     if(index<0||index>=m_assets.size()) return;
+    // Удаляем старую детальную страницу
     if(m_detailPage){m_pageStack->removeWidget(m_detailPage);delete m_detailPage;m_detailPage=nullptr;}
     const Asset&a=m_assets[index];
     bool up=a.currentPrice>=a.prevPrice;
@@ -490,6 +529,7 @@ void MainWindow::showAssetDetail(int index)
     m_detailPage=new QWidget; auto* dl=new QVBoxLayout(m_detailPage);
     dl->setContentsMargins(10,10,10,10); dl->setSpacing(8);
 
+    // Карточка с названием и ценой
     auto* hc=new QWidget; hc->setObjectName("detailHdrCard");
     auto* hcl=new QHBoxLayout(hc); hcl->setContentsMargins(16,12,16,12);
     auto* bb=new QPushButton("← Назад"); bb->setObjectName("backBtn");
@@ -500,6 +540,7 @@ void MainWindow::showAssetDetail(int index)
     auto* nl=new QLabel(a.name); nl->setObjectName("detailName");
     auto* sl=new QLabel(a.sector+" · "+a.ticker); sl->setObjectName("detailSector");
     nb->addWidget(nl); nb->addWidget(sl);
+    // Бейджик live или симуляция
     auto* lb=new QLabel(a.liveData?"🟢 Sandbox LIVE":"🟡 Симуляция");
     lb->setStyleSheet(a.liveData?"color:#34d399;font-size:10px;font-weight:700;":"color:#fbbf24;font-size:10px;font-weight:700;");
     auto* pb=new QVBoxLayout; pb->setAlignment(Qt::AlignRight);
@@ -516,6 +557,7 @@ void MainWindow::showAssetDetail(int index)
     m_pageStack->addWidget(m_detailPage); m_pageStack->setCurrentWidget(m_detailPage);
 }
 
+// Семь карточек с данными актива
 QWidget* MainWindow::buildKPIStrip(const Asset& a)
 {
     bool up=a.currentPrice>=a.prevPrice;
@@ -541,12 +583,15 @@ QWidget* MainWindow::buildKPIStrip(const Asset& a)
     return w;
 }
 
+// Переключаем страницы
 void MainWindow::switchPage(int idx)
 {if(idx>=0&&idx<m_pageStack->count()) m_pageStack->setCurrentIndex(idx);}
 
+// Двойной клик открывает детали
 void MainWindow::onAssetDoubleClicked(QListWidgetItem* item)
 {if(item) showAssetDetail(item->data(Qt::UserRole).toInt());}
 
+// Меняем тему
 void MainWindow::toggleTheme()
 {
     m_darkTheme=!m_darkTheme;
@@ -556,11 +601,9 @@ void MainWindow::toggleTheme()
     applyTheme(); update();
 }
 
-// ================================================================
-// ТЁМНАЯ ТЕМА — объекты названы по objectName, всё через QSS
-// ================================================================
 void MainWindow::applyTheme(){m_darkTheme?applyDarkTheme():applyLightTheme();}
 
+// Тёмная тема через QSS
 void MainWindow::applyDarkTheme()
 {
     qApp->setStyleSheet(R"(
@@ -646,6 +689,7 @@ QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}
 )");
 }
 
+// Светлая тема через QSS
 void MainWindow::applyLightTheme()
 {
     qApp->setStyleSheet(R"(
@@ -731,9 +775,7 @@ QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}
 )");
 }
 
-// ================================================================
-// paintEvent / drag
-// ================================================================
+// Рисуем фон окна
 void MainWindow::paintEvent(QPaintEvent* e)
 {
     Q_UNUSED(e)
@@ -744,6 +786,8 @@ void MainWindow::paintEvent(QPaintEvent* e)
     else{g.setColorAt(0,QColor("#eef2ff"));g.setColorAt(1,QColor("#e8edff"));}
     p.fillPath(path,g);
 }
+
+// Двигаем окно мышкой
 void MainWindow::mousePressEvent(QMouseEvent* e)
 {
     if(e->button()==Qt::LeftButton&&e->pos().y()<80){m_dragging=true;m_dragPos=e->globalPosition().toPoint()-frameGeometry().topLeft();}
@@ -756,15 +800,13 @@ void MainWindow::mouseMoveEvent(QMouseEvent* e)
 }
 void MainWindow::mouseReleaseEvent(QMouseEvent* e){m_dragging=false;QMainWindow::mouseReleaseEvent(e);}
 
-// ================================================================
-// AssetRowWidget — цвет тикера/сектора через QSS (objectName)
-// зелёный/красный цвет цены всегда одинаков в обеих темах
-// ================================================================
+// Одна строчка в списке активов
 AssetRowWidget::AssetRowWidget(const Asset& a,bool up,double pct,bool live,QWidget* parent)
     :QWidget(parent)
 {
     setFixedHeight(64);
     auto* l=new QHBoxLayout(this); l->setContentsMargins(8,6,8,6); l->setSpacing(6);
+    // Цветной кружок с буквами тикера
     auto* ic=new QLabel(a.ticker.left(2)); ic->setFixedSize(34,34); ic->setAlignment(Qt::AlignCenter);
     ic->setStyleSheet(QString("background:%1;border-radius:17px;color:white;font-weight:800;font-size:10px;").arg(sectorColor(a.sector).name()));
     auto* cv=new QVBoxLayout; cv->setSpacing(2);
@@ -772,6 +814,7 @@ AssetRowWidget::AssetRowWidget(const Asset& a,bool up,double pct,bool live,QWidg
     auto* tl=new QLabel(a.ticker); tl->setObjectName("assetTicker");
     auto* sl=new QLabel(a.sector); sl->setObjectName("assetSector");
     r1->addWidget(tl);
+    // Зелёная точка если данные живые
     if(live){auto* dot=new QLabel("●");dot->setStyleSheet("color:#34d399;font-size:8px;margin-left:2px;");r1->addWidget(dot);}
     r1->addSpacing(4); r1->addWidget(sl); r1->addStretch();
     QString mini=QString("TC:%1 | CP:%2 | PL:%3 | PRI:%4")
@@ -780,7 +823,7 @@ AssetRowWidget::AssetRowWidget(const Asset& a,bool up,double pct,bool live,QWidg
         .arg(QString::number(a.personalRisk,'f',1));
     auto* ml=new QLabel(mini); ml->setObjectName("assetMini");
     cv->addLayout(r1); cv->addWidget(ml);
-    // Цена — зелёный/красный фиксирован, не меняется от темы
+    // Цена зелёная или красная
     const QString clr=up?"#34d399":"#f87171";
     auto* rv=new QVBoxLayout; rv->setSpacing(1); rv->setAlignment(Qt::AlignRight);
     auto* pl=new QLabel(QString::number(a.currentPrice,'f',1));
@@ -791,9 +834,7 @@ AssetRowWidget::AssetRowWidget(const Asset& a,bool up,double pct,bool live,QWidg
     l->addWidget(ic); l->addLayout(cv,1); l->addLayout(rv);
 }
 
-// ================================================================
-// PieChartWidget
-// ================================================================
+// Круговая диаграмма портфеля
 PieChartWidget::PieChartWidget(const QVector<Asset>& a,bool dark,QWidget* parent)
     :QWidget(parent),m_assets(a),m_dark(dark)
 {
@@ -802,6 +843,8 @@ PieChartWidget::PieChartWidget(const QVector<Asset>& a,bool dark,QWidget* parent
 }
 void PieChartWidget::setAssets(const QVector<Asset>& a){m_assets=a;update();}
 void PieChartWidget::setDark(bool d){m_dark=d;update();}
+
+// Рисуем пирог
 void PieChartWidget::paintEvent(QPaintEvent*)
 {
     if(m_assets.isEmpty()) return;
@@ -821,12 +864,14 @@ void PieChartWidget::paintEvent(QPaintEvent*)
         p.setBrush(hov?col.lighter(120):col); p.setPen(hov?QPen(Qt::white,2):Qt::NoPen);
         p.drawPie(cx-R+ox,cy-R+oy,R*2,R*2,(int)sa,span); sa+=span;
     }
+    // Дырка в центре
     QColor bg1=m_dark?QColor("#131929"):QColor("#f8faff");
     QColor bg2=m_dark?QColor("#0e1526"):QColor("#eef2ff");
     QRadialGradient hole(cx,cy,iR); hole.setColorAt(0,bg1); hole.setColorAt(1,bg2);
     p.setBrush(hole); p.setPen(Qt::NoPen); p.drawEllipse(cx-iR,cy-iR,iR*2,iR*2);
     QColor tp=m_dark?QColor("#e8eaf6"):QColor("#1e293b");
     QColor ts=m_dark?QColor("#4b5563"):QColor("#64748b");
+    // Текст внутри при наведении
     if(m_hovered>=0&&m_hovered<m_assets.size()){
         const Asset&a=m_assets[m_hovered];
         double share=(a.currentPrice*a.tickCount)/tot*100.0;
@@ -842,11 +887,13 @@ void PieChartWidget::paintEvent(QPaintEvent*)
         p.setFont(QFont("Arial",9,QFont::Bold)); p.setPen(up?QColor("#34d399"):QColor("#f87171"));
         p.drawText(QRect(cx-60,cy+22,120,16),Qt::AlignCenter,(up?"▲ +":"▼ ")+QString::number(pct,'f',2)+"%");
     } else {
+        // Общая сумма в центре
         p.setFont(QFont("Arial",11,QFont::Bold)); p.setPen(tp);
         p.drawText(QRect(cx-70,cy-18,140,20),Qt::AlignCenter,QString::number(tot/1e9,'f',2)+" млрд ₽");
         p.setFont(QFont("Arial",8)); p.setPen(ts);
         p.drawText(QRect(cx-70,cy+4,140,16),Qt::AlignCenter,"Портфель · "+QString::number(m_assets.size())+" активов");
     }
+    // Легенда снизу
     int ly=cy+R+12; if(ly+m_assets.size()*17>height()-4) ly=4;
     p.setFont(QFont("Arial",8));
     for(int i=0;i<m_assets.size();++i){
@@ -858,6 +905,8 @@ void PieChartWidget::paintEvent(QPaintEvent*)
         p.drawText(lx+14,y,150,13,Qt::AlignLeft|Qt::AlignVCenter,m_assets[i].ticker+"  "+QString::number(share,'f',1)+"%");
     }
 }
+
+// Наводим мышь на сектор
 void PieChartWidget::mouseMoveEvent(QMouseEvent* e)
 {
     if(m_assets.isEmpty()) return;
@@ -876,9 +925,7 @@ void PieChartWidget::mouseMoveEvent(QMouseEvent* e)
 }
 void PieChartWidget::leaveEvent(QEvent*){if(m_hovered!=-1){m_hovered=-1;update();}}
 
-// ================================================================
-// RiskGaugeWidget
-// ================================================================
+// Шкала риска
 RiskGaugeWidget::RiskGaugeWidget(double v,double mx,QWidget* p):QWidget(p),m_value(v),m_max(mx){}
 void RiskGaugeWidget::paintEvent(QPaintEvent*)
 {
@@ -886,6 +933,7 @@ void RiskGaugeWidget::paintEvent(QPaintEvent*)
     int w=width(),h=height(),bH=10,bY=h/2-bH/2-10,bW=w-16,bX=8;
     QPainterPath bg; bg.addRoundedRect(bX,bY,bW,bH,5,5); p.fillPath(bg,QColor("#1a2340"));
     double ratio=qBound(0.0,m_value/m_max,1.0); int fW=qRound(bW*ratio);
+    // Градиент зелёный → красный
     if(fW>0){
         QLinearGradient g(bX,0,bX+bW,0);
         g.setColorAt(0.0,QColor("#34d399")); g.setColorAt(0.35,QColor("#fbbf24"));
@@ -901,9 +949,7 @@ void RiskGaugeWidget::paintEvent(QPaintEvent*)
     p.drawText(0,0,w,bY-2,Qt::AlignCenter,QString::number(m_value,'f',2)+" / "+QString::number(m_max,'f',0));
 }
 
-// ================================================================
-// AllocationBarWidget
-// ================================================================
+// Бары по секторам
 AllocationBarWidget::AllocationBarWidget(const QVector<Asset>& a,bool dark,QWidget* p)
     :QWidget(p),m_assets(a),m_dark(dark){}
 void AllocationBarWidget::setAssets(const QVector<Asset>& a){m_assets=a;}
@@ -912,6 +958,7 @@ void AllocationBarWidget::paintEvent(QPaintEvent*)
 {
     QPainter p(this); p.setRenderHint(QPainter::Antialiasing);
     QMap<QString,double> sec; double tot=0;
+    // Считаем сумму каждого сектора
     for(const auto&a:m_assets){sec[a.sector]+=a.currentPrice*a.tickCount;tot+=a.currentPrice*a.tickCount;}
     if(tot<=0) return;
     QColor lc=m_dark?QColor("#6b7280"):QColor("#475569");
@@ -934,9 +981,7 @@ void AllocationBarWidget::paintEvent(QPaintEvent*)
     }
 }
 
-// ================================================================
-// CandleChartWidget
-// ================================================================
+// График японских свечей
 CandleChartWidget::CandleChartWidget(const QVector<CandleData>& c,QWidget* p)
     :QWidget(p),m_candles(c)
 {setMinimumSize(400,280);setMouseTracking(true);m_viewStart=qMax(0,c.size()-100);}
@@ -952,11 +997,13 @@ void CandleChartWidget::paintEvent(QPaintEvent*)
     double mn=1e18,mx=-1e18; for(const auto&c:vis){mn=qMin(mn,c.low);mx=qMax(mx,c.high);}
     double rng=mx-mn; if(rng<1e-9) rng=1;
     auto py=[&](double price)->int{return PT+ch-(int)((price-mn)/rng*ch);};
+    // Горизонтальные сетки
     p.setFont(QFont("Arial",7));
     for(int i=0;i<=6;++i){double pr=mn+rng*i/6.0;int y=py(pr);
         p.setPen(QPen(QColor("#1a2340"),1,Qt::DotLine)); p.drawLine(PL,y,PL+cw,y);
         p.setPen(QColor("#2a3555")); p.drawText(0,y-8,PL-4,16,Qt::AlignRight|Qt::AlignVCenter,QString::number(pr,'f',1));}
     int n=vis.size(); double cW=(double)cw/n,bW=qMax(1.5,cW*0.68);
+    // Рисуем каждую свечку
     for(int i=0;i<n;++i){
         const CandleData&c=vis[i]; bool bull=c.close>=c.open;
         QColor body=bull?QColor("#34d399"):QColor("#f87171");
@@ -969,6 +1016,7 @@ void CandleChartWidget::paintEvent(QPaintEvent*)
     }
     int step=qMax(1,n/8);
     for(int i=0;i<n;i+=step){double cx2=PL+(i+0.5)*cW;p.setPen(QColor("#2a3555"));p.drawText((int)cx2-22,PT+ch+4,44,18,Qt::AlignCenter,vis[i].date.toString("dd.MM"));}
+    // Тултип при наведении
     if(m_hoverIdx>=0&&m_hoverIdx<n){
         double cx2=PL+(m_hoverIdx+0.5)*cW;
         p.setPen(QPen(QColor("#4f6ef760"),1,Qt::DashLine)); p.drawLine((int)cx2,PT,(int)cx2,PT+ch);
@@ -988,14 +1036,13 @@ void CandleChartWidget::mouseMoveEvent(QMouseEvent* e)
 {int n=m_candles.size()-m_viewStart;if(n<=0)return;const int PL=64,PR=14;int cw=width()-PL-PR;double cW=(double)cw/n;if(cW<=0)return;m_hoverIdx=qBound(0,(int)((e->pos().x()-PL)/cW),n-1);update();}
 void CandleChartWidget::leaveEvent(QEvent*){m_hoverIdx=-1;update();}
 
-// ================================================================
-// TickerBarWidget
-// ================================================================
+// Бегущая строка тикеров
 TickerBarWidget::TickerBarWidget(const QVector<Asset>& a,QWidget* p)
     :QWidget(p),m_assets(a)
 {
     setFixedHeight(26);
     m_timer=new QTimer(this);
+    // Двигаем на 1 пиксель каждые 16мс
     connect(m_timer,&QTimer::timeout,[this]{m_offset-=1;int tot=m_assets.size()*180;if(tot>0&&-m_offset>tot)m_offset=0;update();});
     m_timer->start(16);
 }
@@ -1006,6 +1053,7 @@ void TickerBarWidget::paintEvent(QPaintEvent*)
     QPainterPath bg; bg.addRoundedRect(rect(),8,8); p.fillPath(bg,QColor("#0c1020"));
     if(m_assets.isEmpty()) return;
     p.setFont(QFont("Arial",9,QFont::Bold)); int x=m_offset;
+    // Рисуем три копии чтобы не было пробела
     for(int rep=0;rep<3;++rep){
         for(const auto&a:m_assets){
             bool up=a.currentPrice>=a.prevPrice;
@@ -1019,9 +1067,7 @@ void TickerBarWidget::paintEvent(QPaintEvent*)
     }
 }
 
-// ================================================================
-// SummaryRowWidget
-// ================================================================
+// Строчка в сводке портфеля
 SummaryRowWidget::SummaryRowWidget(const Asset& a,QWidget* p):QWidget(p)
 {
     setFixedHeight(50); setObjectName("calRow");
@@ -1038,9 +1084,7 @@ SummaryRowWidget::SummaryRowWidget(const Asset& a,QWidget* p):QWidget(p)
     col(fmtRub(a.profit),2,QString("color:%1;font-size:11px;").arg(a.profit>=0?"#34d399":"#f87171"),Qt::AlignRight|Qt::AlignVCenter);
 }
 
-// ================================================================
-// NewsCardWidget
-// ================================================================
+// Карточка одной новости
 NewsCardWidget::NewsCardWidget(const NewsItem& n,QWidget* p):QWidget(p)
 {
     setObjectName("newsCard");
