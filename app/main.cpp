@@ -1,20 +1,29 @@
-#include <iostream>
-#include <vector>
-#include <cassert>
 #include <QApplication>
-#include "../include/ui/mainwindow.h"
-#include "R.hpp"
-#include "logger.hpp"
+#include <QFont>
+#include <QProcessEnvironment>
+#include "mainwindow.hpp"
 
-int main(int argc, char *argv[]){
+int main(int argc, char* argv[])
+{
     QApplication app(argc, argv);
+    app.setFont(QFont("Arial", 10));
 
-    assert(1 == calculateMaxDragdown({1, 2, 3}));
+    // -------------------------------------------------------
+    // Токен Tinkoff Sandbox передаётся через аргумент в CLion:
+    //   Run → Edit Configurations → Program arguments:
+    //   t.ВашТокен
+    //
+    // Или через переменную окружения TINKOFF_SANDBOX_TOKEN.
+    // Без токена — режим симуляции (без сети).
+    // -------------------------------------------------------
+    QString token;
+    if (argc > 1)
+        token = QString::fromUtf8(argv[1]);
+    else
+        token = QProcessEnvironment::systemEnvironment()
+                    .value("TINKOFF_SANDBOX_TOKEN");
 
-    Logger::getInstance("logs/logbook.txt").log("Test", LoggerLevel::INFO);
-    Logger::getInstance().log("Test2", LoggerLevel::INFO);
-
-    MainWindow w;
-    w.showMaximized();
+    MainWindow w(token);
+    w.show();
     return app.exec();
 }

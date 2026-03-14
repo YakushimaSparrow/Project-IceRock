@@ -1,38 +1,25 @@
 #include "logger.hpp"
-#include <iostream>
-#include <utility>
 
-std::unique_ptr<Logger> Logger::instance = nullptr;
+std::unique_ptr<Logger> Logger::m_inst = nullptr;
 
-Logger::Logger(const std::string &path):logger(spdlog::basic_logger_mt("basic_logger", path))
+Logger::Logger(const std::string& path)
+    : m_log(spdlog::basic_logger_mt("icerock", path, true))
 {
-    std::cout << "Succesfully created!";
-};
-
-void Logger::log(const std::string &msg, LoggerLevel ll)
-{
-    switch(ll){
-        case(LoggerLevel(0)):
-            logger -> info(msg);
-            break;
-
-        case(LoggerLevel(1)):
-            logger -> debug(msg);
-            break;
-
-        case(LoggerLevel(2)):
-            logger -> warn(msg);
-            break;
-
-        case(LoggerLevel(3)):
-            logger -> error(msg);
-            break;
-    }
+    m_log->set_level(spdlog::level::debug);
 }
 
-Logger& Logger::getInstance(const std::string &path)
+Logger& Logger::instance(const std::string& path)
 {
-    if (Logger::instance == nullptr) 
-        instance = std::unique_ptr<Logger> (new Logger(path));
-    return *instance;
+    if (!m_inst) m_inst.reset(new Logger(path));
+    return *m_inst;
+}
+
+void Logger::log(const std::string& msg, LogLevel lv)
+{
+    switch (lv) {
+        case LogLevel::info:  m_log->info(msg);  break;
+        case LogLevel::debug: m_log->debug(msg); break;
+        case LogLevel::warn:  m_log->warn(msg);  break;
+        case LogLevel::error: m_log->error(msg); break;
+    }
 }

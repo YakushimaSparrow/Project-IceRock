@@ -14,6 +14,10 @@
 #include "sandbox.grpc.pb.h"
 #include "tinkoffinvestsdk_export.h"
 
+#ifndef TINKOFFINVESTSDK_EXPORT
+#define TINKOFFINVESTSDK_EXPORT
+#endif
+
 using grpc::ClientAsyncReaderWriter;
 using grpc::ClientContext;
 using grpc::CompletionQueue;
@@ -35,7 +39,7 @@ using Strings = std::vector<std::string>;
 */
 class TINKOFFINVESTSDK_EXPORT ServiceReply
 {
- public:
+public:
     ServiceReply();
     ServiceReply(const std::shared_ptr<google::protobuf::Message> protoMsg,
                  const Status& status,
